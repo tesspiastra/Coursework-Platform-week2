@@ -8,10 +8,10 @@
     "sourceMap": false,
     "declaration": true,
     "emitDeclarationOnly": false,
-    "outDir": "tracker/dist",
+    "outDir": "countries/dist",
     "strict": true,
     "types": ["jest", "node"]
   },
-  "include": ["tracker/src/*.ts", "tracker/src/*.test.ts"],
+  "include": ["countries/src/*.ts", "countries/src/*.test.ts"],
   "exclude": ["node_modules"]
 }
