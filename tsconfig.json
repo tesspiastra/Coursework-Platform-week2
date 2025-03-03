@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "forceConsistentCasingInFileNames": true,
+    "target": "ES2022",
+    "module": "ES2022",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "sourceMap": false,
+    "declaration": true,
+    "emitDeclarationOnly": false,
+    "outDir": "tracker/dist",
+    "strict": true,
+    "types": ["jest", "node"]
+  },
+  "include": ["tracker/src/*.ts", "tracker/src/*.test.ts"],
+  "exclude": ["node_modules"]
+}

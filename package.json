@@ -1,0 +1,23 @@
+{
+  "name": "coursework-platform-week2",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest",
+    "compile": "tsc",
+    "launch": "node ./tracker/dist/main.js",
+    "compile:launch": "npm run compile && npm run launch"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tesspiastra/Coursework-Platform-week2.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/tesspiastra/Coursework-Platform-week2/issues"
+  },
+  "homepage": "https://github.com/tesspiastra/Coursework-Platform-week2#readme",
+  "type": "module"
+}
