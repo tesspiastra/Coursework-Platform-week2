@@ -1,7 +1,8 @@
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 import {input, select} from '@inquirer/prompts';
 
 const COUNTRY_URL = "https://restcountries.com/v3.1/name/"
+type COUNTRY_TYPE = {name:{common: string},flag:string,currencies:{[code:string]:{name:string}},languages:{[code:string]:string},population:string,continents:string[]}
 
 class APIError{
     message: string;
@@ -9,7 +10,6 @@ class APIError{
     constructor(message: string, code: number = 500){
         this.message = message
         this.code = code
-
     }
 }
 
@@ -30,7 +30,7 @@ class Country {
         this.population = population
     }
     showCountry(){
-        console.log(`Country name: ${this.name} ${this.flag}\nCurrency: ${this.currency}\nLanguage(s): ${this.language}\nContinent: ${this.continent}\nPopulation: ${this.population} people`)
+        console.log(`~~~~~*~~~~~*~~~~~\n\nCountry name: ${this.name} ${this.flag}\nCurrency: ${this.currency}\nLanguage(s): ${this.language}\nContinent: ${this.continent}\nPopulation: ${this.population} people\n\n~~~~~*~~~~~*~~~~~`)
     }
 }
 
@@ -40,22 +40,23 @@ class App {
     async getCountry (country: string) {
         const response = await axios.get(`${COUNTRY_URL}${country}`)
         if (response.status === 200){
-            if (response.data.length > 1){
-
+            const data = response.data
+            if (data.length > 1){
+                let choice = await this.giveOptions(data)
+                for (let i=0; i < data.length; i++){
+                    if (data[i].name.common === choice){
+                        const newCountry = this.structureCountry(data[i])
+                        newCountry.showCountry()
+                    }
+                }
             }
-            const allData = response.data[0]
-            
-            const name = allData["name"]["common"]
-            const flag = allData["flag"]
-            const currCode = Object.keys(allData["currencies"])[0]
-            const currencies = allData["currencies"][currCode as keyof typeof allData["currencies"]]?.name
-            const language = allData["languages"][Object.keys(allData["languages"])[0]]
-            const continent = allData["continents"][0]
-            const population = allData["population"]
+            else{
+                const allData = response.data[0]
+                // console.log(allData)
 
-            const newCountry = new Country(name,flag,currencies,language,continent,population)
-            newCountry.showCountry()
-        }
+                const newCountry = this.structureCountry(allData)
+                newCountry.showCountry()
+            }}
         if ((response.status).toString()[0] === '4'){
             throw new APIError("Could not find the specified country", response.status)
         }
@@ -64,25 +65,49 @@ class App {
         }
         
     }
+    structureCountry(country: COUNTRY_TYPE){
+        const name = country.name.common
+        const flag = country.flag
+        const currCode = Object.keys(country.currencies)[0]
+        const currencies = currCode ? country.currencies[currCode].name : "Unknown"
+        const languageCode = Object.keys(country.languages)[0]
+        const language = languageCode ? country.languages[languageCode]: "Unknown"
+        const continent = country.continents[0]
+        const population = country.population
+        const newCountry = new Country(name,flag,currencies,language,continent,population)
+
+        return newCountry
+    }
     async startSession (){
+        console.log("~~~~~~~~~~~~~~~~~~~~~\nWelcome to the country searcher!\n~~~~~~~~~~~~~~~~~~~~~\n\n")
         let search = await input({message: "What country do you want to search for? (type 'exit' to quit interface)"})
         while (search != 'exit'){
             try{
                 await this.getCountry(search)
-                search = await input({message: "You may search again:"})
+                search = await input({message: "You may search again, or exit:"})
             }
-            catch (APIError){
-                search = await input({message: "Please amend your search:"})
+            catch (error){
+                if (error instanceof APIError){
+                    console.log(`ERROR: ${error.message} ${error.code}`)
+                }
+                if (error instanceof AxiosError){
+                    console.log(`ERROR: ${error.code} ${error.response?.status} with message ${error.response?.statusText}`)
+                }
+                else{
+                    console.log(`UNKNOWN ERROR: ${error}`)
+                    
+                }
+                search = await input({message: "Please search again or exit:"})
             }
     }  
     }
-    async giveOptions(data: {name:string}[]){
+    async giveOptions(data: {name:{common:string}}[]){
         console.log("There are several options for your search:\n")
     
         const choices = data.map(country => ({
-        name: country.name,
-        value: country.name,
-        description: `Select ${country.name}`
+        name: country.name.common,
+        value: country.name.common,
+        description: `Select ${country.name.common}?`
         }));
 
         const answer = await select({
@@ -90,11 +115,10 @@ class App {
             choices: choices
         });
 
-        answer
+        console.log("You chose " + answer)
+        return answer
     }
 }
-
-
 
 let app = new App
 app.startSession()
