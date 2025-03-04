@@ -38,8 +38,8 @@ class App {
     constructor(){}
 
     async getCountry (country: string) {
-        const response = await axios.get(`${COUNTRY_URL}${country}`)
-        if (response.status === 200){
+        try{
+            const response = await axios.get(`${COUNTRY_URL}${country}`)
             const data = response.data
             if (data.length > 1){
                 let choice = await this.giveOptions(data)
@@ -56,14 +56,20 @@ class App {
 
                 const newCountry = this.structureCountry(allData)
                 newCountry.showCountry()
-            }}
-        if ((response.status).toString()[0] === '4'){
-            throw new APIError("Could not find the specified country", response.status)
+            }
         }
-        if ((response.status).toString()[0] === '5'){
-            throw new APIError("There was an internal issue", response.status)
+        catch (error){
+            if (error instanceof AxiosError){
+                if (error.response?.status.toString()[0] === '4'){
+                    throw new APIError("Could not find the specified country", error.response.status)
+                }
+                if (error.response?.status.toString()[0] === '5'){
+                    console.log(error.status)
+                    throw new APIError("There was an internal issue", error.response.status)
+                }
+                
+            }
         }
-        
     }
     structureCountry(country: COUNTRY_TYPE){
         const name = country.name.common
@@ -89,9 +95,6 @@ class App {
             catch (error){
                 if (error instanceof APIError){
                     console.log(`ERROR: ${error.message} ${error.code}`)
-                }
-                if (error instanceof AxiosError){
-                    console.log(`ERROR: ${error.code} ${error.response?.status} with message ${error.response?.statusText}`)
                 }
                 else{
                     console.log(`UNKNOWN ERROR: ${error}`)
