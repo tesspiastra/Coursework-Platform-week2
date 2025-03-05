@@ -5,7 +5,7 @@
   "scripts": {
     "test": "jest",
     "compile": "tsc",
-    "launch": "node ./airplanes/dist/airplanes.js --airport Simao Airport",
+    "launch": "node ./airplanes/dist/airplanes.js --airport Simao",
     "compile:launch": "npm run compile && npm run launch"
   },
   "repository": {

@@ -31,18 +31,41 @@ class App {
         const args = parser.parse_args();
         return args
     }
-    startSession(){
+    async startSession(){
         let args = this.configureArgs()
         let airport = args.airport
         if (airport) {
             console.log(`Fetching information for airport: ${airport}`);
         } else {
             console.log("No airport provided.");
-            let search = input({message:"Please provide an airport:"})
+            let airport = await input({message:"Please provide an airport:"})
         }
-        const airports = readFile("./airports.json",'utf-8')
-        console.log(airports, typeof(airports))
+        const airports = await readFile("airplanes/src/airports.json",'utf-8')
+
+        const airportsJson = await JSON.parse(airports)
+        const cleanAirports = this.cleanAirports(airportsJson)
+        let found = true 
+        for (let i=0; i< cleanAirports.length;i++){
+            if (cleanAirports[i].name === airport){
+                // const chosenAirport = new Airport cleanAirports[i]
+                console.log(cleanAirports[i])
+            }
+            else {
+                found = false
+            }
+            
+        }
+        console.log(found)
     }   
+    cleanAirports(airports: [{name:string,lon:string,lat:string}]){
+        const cleanAirports = []
+        for (let i=0; i<airports.length;i++){
+            if (airports[i].name != null|| airports[i].lon != null|| airports[i].lat!= null){
+                cleanAirports.push(airports[i])
+            }
+        }
+        return cleanAirports
+    }
 }
 let app = new App
 app.startSession()
