@@ -12,6 +12,6 @@
     "strict": true,
     "types": ["jest", "node"]
   },
-  "include": ["airplanes/src/*.ts", "airplanes/src/*.test.ts"],
+  "include": ["airplanes/dist/env.d.ts","airplanes/src/*.ts", "airplanes/src/*.test.ts"],
   "exclude": ["node_modules"]
 }
