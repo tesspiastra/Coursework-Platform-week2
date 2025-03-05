@@ -8,10 +8,10 @@
     "sourceMap": false,
     "declaration": true,
     "emitDeclarationOnly": false,
-    "outDir": "countries/dist",
+    "outDir": "airplanes/dist",
     "strict": true,
     "types": ["jest", "node"]
   },
-  "include": ["countries/src/*.ts", "countries/src/*.test.ts"],
+  "include": ["airplanes/src/*.ts", "airplanes/src/*.test.ts"],
   "exclude": ["node_modules"]
 }

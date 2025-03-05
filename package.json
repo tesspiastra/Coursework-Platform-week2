@@ -5,7 +5,7 @@
   "scripts": {
     "test": "jest",
     "compile": "tsc",
-    "launch": "node ./countries/dist/countries.js",
+    "launch": "node ./airplanes/dist/airplanes.js",
     "compile:launch": "npm run compile && npm run launch"
   },
   "repository": {
