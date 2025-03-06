@@ -5,7 +5,7 @@
   "scripts": {
     "test": "jest",
     "compile": "tsc",
-    "launch": "node ./airplanes/dist/airplanes.js --airport Simao",
+    "launch": "node ./airplanes/dist/airplanes.js --airport london",
     "compile:launch": "npm run compile && npm run launch"
   },
   "repository": {
@@ -30,6 +30,7 @@
   },
   "devDependencies": {
     "@types/argparse": "^2.0.17",
-    "@types/dotenv": "^6.1.1"
+    "@types/dotenv": "^6.1.1",
+    "@types/node": "^22.13.9"
   }
 }
