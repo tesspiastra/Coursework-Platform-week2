@@ -3,82 +3,47 @@ import { input, select } from "@inquirer/prompts";
 import { readFile } from "fs/promises";
 import { ArgumentParser } from 'argparse';
 import dotenv from "dotenv";
+import blessed from "blessed";
+import contrib from "blessed-contrib";
 dotenv.config();
 const KEY = process.env.API_KEY;
-console.log(KEY);
-const BASE_URL = `https://airlabs.co/api/v9/schedules?dep_iata=`;
+const W_KEY = process.env.WEATHER_KEY;
+const BASE_URL = 'https://airlabs.co/api/v9/schedules?dep_iata=';
+const WEATHER_URL = 'http://api.weatherapi.com/v1/';
 class Flight {
-    flight_number;
-    dep_terminal;
-    dep_gate;
-    dep_time;
-    arr_terminal;
-    arr_time;
-    arr_estimated;
+    airlineIata;
+    flightNumber;
+    depTerminal;
+    depGate;
+    depTime;
+    arrTime;
+    arrEstimated;
     status;
     duration;
     delayed;
-    dep_delayed;
-    arr_delayed;
-    constructor(airline_iata, flight_number, dep_terminal, dep_gate, dep_time, arr_terminal, arr_time, arr_estimated, status, duration, delayed, dep_delayed, arr_delayed) {
-        this.flight_number = flight_number;
-        this.dep_terminal = dep_terminal;
-        this.dep_gate = dep_gate;
-        this.dep_time = dep_time;
-        this.arr_terminal = arr_terminal;
-        this.arr_time = arr_time;
-        this.arr_estimated = arr_estimated;
+    depDelayed;
+    arrDelayed;
+    windSpeed;
+    temp;
+    condition;
+    constructor(airlineIata, flightNumber, depTerminal, depGate, depTime, arrTime, arrEstimated, status, duration, delayed, depDelayed, arrDelayed, windSpeed, temp, condition) {
+        this.airlineIata = airlineIata;
+        this.flightNumber = flightNumber;
+        this.depTerminal = depTerminal;
+        this.depGate = depGate;
+        this.depTime = depTime;
+        this.arrTime = arrTime;
+        this.arrEstimated = arrEstimated;
         this.status = status;
         this.duration = duration;
         this.delayed = delayed;
-        this.dep_delayed = dep_delayed;
-        this.arr_delayed = arr_delayed;
+        this.depDelayed = depDelayed;
+        this.arrDelayed = arrDelayed;
+        this.windSpeed = windSpeed;
+        this.temp = temp;
+        this.condition = condition;
     }
 }
-// class Flight {
-//     airline_iata: string;
-//     flight_number: string;
-//     dep_terminal: string | null;
-//     dep_gate: string | null;
-//     dep_time: string;
-//     arr_terminal: string | null;
-//     arr_time: string;
-//     arr_estimated: string;
-//     status: string;
-//     duration: number;
-//     delayed: number | null;
-//     dep_delayed: number | null;
-//     arr_delayed: number | null;
-//     constructor(
-//         airline_iata: string,
-//         flight_number: string,
-//         dep_terminal: string | null,
-//         dep_gate: string | null,
-//         dep_time: string,
-//         arr_terminal: string | null,
-//         arr_time: string,
-//         arr_estimated: string,
-//         status: string,
-//         duration: number,
-//         delayed: number | null,
-//         dep_delayed: number | null,
-//         arr_delayed: number | null
-//     ) {
-//         this.airline_iata = airline_iata;
-//         this.flight_number = flight_number;
-//         this.dep_terminal = dep_terminal;
-//         this.dep_gate = dep_gate;
-//         this.dep_time = dep_time;
-//         this.arr_terminal = arr_terminal;
-//         this.arr_time = arr_time;
-//         this.arr_estimated = arr_estimated;
-//         this.status = status;
-//         this.duration = duration;
-//         this.delayed = delayed;
-//         this.dep_delayed = dep_delayed;
-//         this.arr_delayed = arr_delayed;
-//     }
-// }
 class Airport {
     name;
     iata;
@@ -113,9 +78,11 @@ class App {
         const airports = await readFile("airplanes/src/airports.json", 'utf-8');
         const airportsJson = await JSON.parse(airports);
         const cleanAirports = this.cleanAirports(airportsJson);
-        let finalOption = await this.findAirport(cleanAirports, airport);
-        console.log(finalOption, "final choice");
-        this.fetchFlights(finalOption);
+        const finalAirport = await this.findAirport(cleanAirports, airport);
+        const currentFlights = await this.fetchFlights(finalAirport.iata, finalAirport.lat, finalAirport.lon);
+        let newTable = new Table();
+        let formattedFlights = newTable.formatFlights(currentFlights);
+        newTable.createTable(finalAirport.name, formattedFlights);
     }
     async findAirport(airports, input) {
         let options = [];
@@ -128,7 +95,7 @@ class App {
         if (options.length > 1) {
             const choices = options.map(airport => ({
                 name: airport.name,
-                value: airport.iata,
+                value: airport,
                 description: `Select ${airport.name}?`
             }));
             const choice = await select({
@@ -137,26 +104,83 @@ class App {
             });
             return choice;
         }
-        return options[0].iata;
+        return options[0];
     }
     cleanAirports(airports) {
         const cleanAirports = [];
         for (let i = 0; i < airports.length; i++) {
             if (airports[i].name != null && airports[i].lon != null && airports[i].lat != null) {
-                cleanAirports.push(airports[i]);
+                cleanAirports.push(new Airport(airports[i].name, airports[i].iata, airports[i].lat, airports[i].lon));
             }
         }
         return cleanAirports;
     }
-    async fetchFlights(iata) {
+    async fetchFlights(iata, lat, lon) {
         const response = await axios.get(`${BASE_URL}${iata}&api_key=${process.env.API_KEY}`);
-        // console.log(response)
         const data = response.data.response;
         let listFlights = [];
+        const weather = await this.fetchWeather(lat, lon);
         for (let i = 0; i < data.length; i++) {
-            listFlights.push(new Flight(data[i]['airline_iata'], data[i]['flight_number'], data[i]['dep_terminal'], data[i]['dep_gate'], data[i]['dep_time'], data[i]['arr_terminal'], data[i]['arr_time'], data[i]['arr_estimated'], data[i]['status'], data[i]['duration'], data[i]['delayed'], data[i]['dep_delayed'], data[i]['arr_delayed']));
+            listFlights.push(new Flight(data[i]['airline_iata'], data[i]['flight_number'], data[i]['dep_terminal'], data[i]['dep_gate'], data[i]['dep_time'], data[i]['arr_time'], data[i]['arr_estimated'], data[i]['status'], data[i]['duration'], data[i]['delayed'], data[i]['dep_delayed'], data[i]['arr_delayed'], weather.wind_speed, weather.temp_c, weather.condition));
         }
-        console.log(listFlights[0]);
+        return listFlights;
+    }
+    async fetchWeather(lat, lon) {
+        const response = await axios.get(`${WEATHER_URL}current.json?key=${W_KEY}&q=${lat},${lon}&aqi=no`);
+        console.log(response.data.current);
+        const currentWeather = response.data.current;
+        return { "wind_speed": currentWeather['wind_mph'], "temp_c": currentWeather['temp_c'], "condition": currentWeather['condition']['text'] };
+    }
+}
+class Table {
+    createTable(airportName, flights) {
+        const screen = blessed.screen({
+            smartCSR: true,
+            title: `Flight Information for ${airportName}`,
+        });
+        const grid = new contrib.grid({ rows: 12, cols: 12, screen });
+        const table = grid.set(0, 0, 12, 12, contrib.table, {
+            keys: true,
+            fg: "white",
+            selectedFg: "black",
+            selectedBg: "green",
+            interactive: true,
+            label: `Current Flights at ${airportName}`,
+            width: "100%",
+            height: "100%",
+            border: { type: "line", fg: "cyan" },
+            columnSpacing: 2,
+            columnWidth: [8, 8, 8, 10, 10, 10],
+        });
+        table.setData({
+            headers: ["Airline Code", "Flight Number",
+                "Terminal", "Gate",
+                "Dep. Time", "Arr. Time",
+                "Duration", "Estimated Arr.",
+                "Status", "Delayed",
+                "Dep. Delay", "Arr. Delay",
+                "Wind Speed", "Local Temp.",
+                "Weather Conditions"
+            ],
+            data: flights
+        });
+        screen.key(["escape", "q", "C-c"], () => process.exit(0));
+        screen.render();
+    }
+    formatFlights(flights) {
+        let formattedFlights = [];
+        for (let i = 0; i < flights.length; i++) {
+            formattedFlights.push([flights[i].airlineIata, flights[i].flightNumber,
+                flights[i].depTerminal, flights[i].depGate,
+                flights[i].depTime, flights[i].arrTime,
+                flights[i].arrEstimated, flights[i].status,
+                flights[i].duration, flights[i].delayed,
+                flights[i].depDelayed, flights[i].arrDelayed,
+                flights[i].windSpeed, flights[i].temp,
+                flights[i].condition
+            ]);
+        }
+        return formattedFlights;
     }
 }
 let app = new App;
