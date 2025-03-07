@@ -1,5 +1,5 @@
 import axios, { AxiosError } from 'axios';
-import {input, select} from "@inquirer/prompts"
+import {input, number, select} from "@inquirer/prompts"
 import {readFile} from "fs/promises"
 import { ArgumentParser } from 'argparse'
 import dotenv from "dotenv";
@@ -20,6 +20,7 @@ class Flight {
   constructor(
     public airlineIata: string,  
     public flightNumber: string,  
+    public destination: string,
     public depTerminal: string | null,  
     public depGate: string | null,  
     public depTime: string,  
@@ -27,13 +28,26 @@ class Flight {
     public arrEstimated: string,  
     public status: string,  
     public duration: number,  
-    public delayed: number | null,  
-    public depDelayed: number | null,  
-    public arrDelayed: number | null,  
-    public windSpeed: number,  
-    public temp: number, 
+    public delayed: string | null,  
+    public depDelayed: string | null,  
+    public arrDelayed: string | null,  
+    public windSpeed: string,  
+    public temp: string, 
     public condition: string
-  ) {}
+  ) {
+    this.depTerminal = depTerminal ?? "Not Known";
+    this.depGate = depGate ?? "TBD";
+    this.delayed = delayed ?? "No Delay";
+    this.depDelayed = depDelayed ?? "0";
+    this.arrDelayed = arrDelayed ?? "0";
+    this.arrTime = arrTime ?? "Not Known";
+    this.arrEstimated = arrEstimated ?? "Not Known"
+  }
+  fixNulls(){
+    if(this.depTerminal === null){
+        this.depTerminal
+    }
+  }
 }
 
 
@@ -49,6 +63,8 @@ class Airport {
         this.lon = lon
     }
 }
+
+
 class App {
     configureArgs(){
         const parser = new ArgumentParser({
@@ -77,7 +93,7 @@ class App {
         
         const finalAirport = await this.findAirport(cleanAirports,airport)
 
-        const currentFlights = await this.fetchFlights(finalAirport.iata,finalAirport.lat,finalAirport.lon)
+        const currentFlights = await this.fetchFlights(cleanAirports,finalAirport.iata,finalAirport.lat,finalAirport.lon)
         
         let newTable = new Table()
         let formattedFlights = newTable.formatFlights(currentFlights)
@@ -91,7 +107,6 @@ class App {
                 options.push(airports[i])
             }
         }
-        console.log(options, "list of options")
         if (options.length > 1){
             const choices = options.map(airport=>({
                 name: airport.name,
@@ -107,6 +122,14 @@ class App {
         }
         return options[0]
     }
+    findDestination(airports: Airport[],iata: string){
+        for (let i=0; i< airports.length;i++){
+            if ((airports[i].iata).includes(iata)){
+                return airports[i].name
+            }
+        }
+        throw new Error("Not found")
+    }
     cleanAirports(airports: AIRPORT_LIST){
         const cleanAirports = []
         for (let i=0; i<airports.length;i++){
@@ -120,16 +143,25 @@ class App {
         }
         return cleanAirports
     }
-    async fetchFlights (iata: string,lat: string,lon: string): Promise<Flight[]>{
+    async fetchFlights (airports: Airport[],iata: string,lat: string,lon: string): Promise<Flight[]>{
         const response = await axios.get(`${BASE_URL}${iata}&api_key=${process.env.API_KEY}`)
     
         const data = response.data.response
+        console.log(data)
         let listFlights = []
         const weather = await this.fetchWeather(lat,lon)
+        let destination = 'Not found'
+        try {
+            destination = this.findDestination(airports,iata)
+        }
+        catch (error: any){
+        }
+    
         for (let i = 0; i<data.length;i++){
             listFlights.push(new Flight(
                 data[i]['airline_iata'],
                 data[i]['flight_number'],
+                destination,
                 data[i]['dep_terminal'],
                 data[i]['dep_gate'],
                 data[i]['dep_time'],
@@ -145,13 +177,16 @@ class App {
                 weather.condition
             ));
         }
+        console.log(listFlights.length)
         return listFlights
     }
     async fetchWeather(lat: string,lon: string){
         const response = await axios.get(`${WEATHER_URL}current.json?key=${W_KEY}&q=${lat},${lon}&aqi=no`)
-        console.log(response.data.current)
         const currentWeather = response.data.current
-        return {"wind_speed":currentWeather['wind_mph'],"temp_c":currentWeather['temp_c'],"condition":currentWeather['condition']['text']}
+        return {"wind_speed":currentWeather['wind_mph'],
+            "temp_c":currentWeather['temp_c'],
+            "condition":currentWeather['condition']['text'
+            ]}
     }
 }
 
@@ -161,45 +196,53 @@ class Table{
         smartCSR: true,
         title: `Flight Information for ${airportName}`,
         });
+        
+        const height = flights.length
+        const columnCount = flights[0].length
+        const columnLength = 10
 
-        const grid = new contrib.grid({ rows: 12, cols: 12, screen });
+        const grid = new contrib.grid({ rows: height, cols: columnCount, screen });
 
-        const table = grid.set(0, 0, 12, 12, contrib.table, {
+        const table = grid.set(0,0,height,columnCount,contrib.table,{
         keys: true,
         fg: "white",
         selectedFg: "black",
         selectedBg: "green",
-        interactive: true,
         label: `Current Flights at ${airportName}`,
-        width: "100%",
-        height: "100%",
+        width: "50%",
+        height: "500%",
         border: { type: "line", fg: "cyan" },
         columnSpacing: 2,
-        columnWidth: [8, 8, 8, 10, 10, 10],
+        columnWidth: Array.from({"length": 16}).fill(columnLength) as number[],
+        scrollable: true,
+        scrollbar:{
+            bg: 'blue'
+            }
         });
 
         table.setData({
             headers: ["Airline Code","Flight Number", 
+                    "Destination",
                     "Terminal", "Gate", 
                     "Dep. Time", "Arr. Time",
                     "Duration", "Estimated Arr.",
-                    "Status","Delayed",
-                    "Dep. Delay","Arr. Delay",
-                    "Wind Speed","Local Temp.",
+                    "Status","Delayed (mins)",
+                    "Dep. Delay (mins)","Arr. Delay (mins)",
+                    "Wind Speed (mph)","Local Temp. (\u00B0C)",
                     "Weather Conditions"
                 ],
             data: flights
             });
 
-
         screen.key(["escape", "q", "C-c"], () => process.exit(0));
-
+        screen.key(['up', 'down'], (ch, key) => {  const amount = (key.name === 'up') ? -1 : 1;  table.scroll(amount);  screen.render(); });
         screen.render();
     }
     formatFlights(flights: Flight[]): any[][]{
         let formattedFlights = []
         for (let i = 0; i<flights.length;i++){
             formattedFlights.push([flights[i].airlineIata,flights[i].flightNumber,
+                    flights[i].destination,
                     flights[i].depTerminal,flights[i].depGate,
                     flights[i].depTime,flights[i].arrTime,
                     flights[i].arrEstimated,flights[i].status,
@@ -209,6 +252,7 @@ class Table{
                     flights[i].condition
                 ])
         }
+        console.log(formattedFlights[0])
         return formattedFlights
     }
 }
